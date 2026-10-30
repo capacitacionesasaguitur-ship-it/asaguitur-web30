@@ -1,0 +1,136 @@
+---
+import { IDIOMAS, ESPECIALIDADES } from '../lib/catalogs';
+import type { Member } from '../lib/member';
+
+interface Props { member: Member }
+const { member } = Astro.props;
+const idiomas = [...new Set([...IDIOMAS, ...member.languages])];
+const especialidades = [...new Set([...ESPECIALIDADES, ...member.specialties])];
+const initials = member.full_name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+const label = 'block text-sm font-semibold';
+const field = 'mt-1 w-full rounded-lg border border-navy-900/25 bg-white px-3 py-2.5';
+---
+<div class="grid gap-6 lg:grid-cols-[260px_1fr]">
+  <!-- Foto -->
+  <div class="rounded-2xl border border-navy-100 bg-white p-5 text-center">
+    <div id="photo-box" class="mx-auto size-36">
+      {member.photo_url
+        ? <img id="photo-img" src={member.photo_url} alt={`Foto de ${member.full_name}`} class="size-36 rounded-full object-cover" />
+        : <div id="photo-initials" role="img" aria-label="Sin foto" class="flex size-36 items-center justify-center rounded-full bg-navy-700 font-display text-4xl font-bold text-white">{initials}</div>}
+    </div>
+    <label for="photo" class="mt-4 inline-block cursor-pointer rounded-lg border border-navy-700 px-4 py-2 text-sm font-semibold text-navy-700 hover:bg-navy-100">Cambiar foto</label>
+    <input id="photo" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" />
+    <p class="mt-2 text-xs text-navy-900/70">Se recorta en cuadrado. Usa una foto de rostro, con buena luz.</p>
+    <p id="photo-status" role="status" aria-live="polite" class="mt-2 text-sm"></p>
+  </div>
+
+  <!-- Datos -->
+  <form id="profile-form" class="space-y-5 rounded-2xl border border-navy-100 bg-white p-5" novalidate>
+    <div class="grid gap-4 sm:grid-cols-3 rounded-xl bg-fondo p-4 text-sm">
+      <div><p class="text-navy-900/75">Nombre</p><p class="font-semibold">{member.full_name}</p></div>
+      <div><p class="text-navy-900/75">Carné</p><p class="font-semibold">{member.carnet}</p></div>
+      <div><p class="text-navy-900/75">RNT</p><p class="font-semibold">{member.rnt}</p></div>
+      <p class="text-xs text-navy-900/70 sm:col-span-3">Para corregir estos datos escribe a la Junta Directiva.</p>
+    </div>
+
+    <div>
+      <label for="bio" class={label}>Biografía</label>
+      <textarea id="bio" name="bio" rows="5" maxlength="1000" class={field}>{member.bio ?? ''}</textarea>
+      <p class="mt-1 text-xs text-navy-900/70">Máximo 1,000 caracteres. Se muestra en tu ficha pública del directorio.</p>
+    </div>
+
+    <fieldset>
+      <legend class={label}>Idiomas</legend>
+      <div class="mt-2 flex flex-wrap gap-2" data-group="languages">
+        {idiomas.map((v) => (
+          <label class="cursor-pointer">
+            <input type="checkbox" value={v} checked={member.languages.includes(v)} class="peer sr-only" />
+            <span class="inline-block rounded-lg border border-navy-900/25 px-3 py-1.5 text-sm peer-checked:border-navy-700 peer-checked:bg-navy-700 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-cielo-600">{v}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend class={label}>Especialidades</legend>
+      <div class="mt-2 flex flex-wrap gap-2" data-group="specialties">
+        {especialidades.map((v) => (
+          <label class="cursor-pointer">
+            <input type="checkbox" value={v} checked={member.specialties.includes(v)} class="peer sr-only" />
+            <span class="inline-block rounded-lg border border-navy-900/25 px-3 py-1.5 text-sm peer-checked:border-magenta-700 peer-checked:bg-magenta-700 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-cielo-600">{v}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+
+    <div>
+      <label for="whatsapp" class={label}>WhatsApp</label>
+      <input id="whatsapp" name="whatsapp" type="tel" inputmode="numeric" value={member.whatsapp} class={`${field} sm:max-w-xs`} />
+      <p class="mt-1 text-xs text-navy-900/70">Con código de país, por ejemplo 50370001234. Si escribes solo 8 dígitos, agregamos el 503.</p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-4">
+      <button type="submit" class="rounded-xl bg-navy-700 px-5 py-3 text-sm font-semibold text-white hover:bg-navy-900 disabled:opacity-60">Guardar cambios</button>
+      <p id="profile-status" role="status" aria-live="polite" class="text-sm"></p>
+    </div>
+  </form>
+</div>
+
+<script>
+  const form = document.getElementById('profile-form') as HTMLFormElement;
+  const status = document.getElementById('profile-status') as HTMLElement;
+  const say = (el: HTMLElement, msg: string, kind: 'ok' | 'err' | '' = '') => {
+    el.textContent = msg;
+    el.className = `text-sm ${kind === 'ok' ? 'font-semibold text-vigente' : kind === 'err' ? 'font-semibold text-novigente' : ''}`;
+  };
+  const checked = (g: string) =>
+    [...form.querySelectorAll<HTMLInputElement>(`[data-group="${g}"] input:checked`)].map((i) => i.value);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type=submit]') as HTMLButtonElement;
+    btn.disabled = true; say(status, 'Guardando…');
+    try {
+      const res = await fetch('/api/member/profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bio: (form.elements.namedItem('bio') as HTMLTextAreaElement).value,
+          whatsapp: (form.elements.namedItem('whatsapp') as HTMLInputElement).value,
+          languages: checked('languages'), specialties: checked('specialties'),
+        }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error ?? 'No pudimos guardar tus cambios.');
+      (form.elements.namedItem('whatsapp') as HTMLInputElement).value = out.whatsapp;
+      say(status, 'Cambios guardados. Tu ficha pública ya se actualizó.', 'ok');
+    } catch (err) { say(status, (err as Error).message, 'err'); }
+    finally { btn.disabled = false; }
+  });
+
+  // Foto: se recorta a 512×512 JPEG en el navegador antes de subirla
+  const photoInput = document.getElementById('photo') as HTMLInputElement;
+  const photoStatus = document.getElementById('photo-status') as HTMLElement;
+  async function toJpeg(file: File): Promise<Blob> {
+    const bmp = await createImageBitmap(file);
+    const s = Math.min(bmp.width, bmp.height), size = 512;
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    c.getContext('2d')!.drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, size, size);
+    return new Promise((ok, no) => c.toBlob((b) => (b ? ok(b) : no(new Error('x'))), 'image/jpeg', 0.85));
+  }
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files?.[0]; if (!file) return;
+    say(photoStatus, 'Subiendo foto…');
+    try {
+      const fd = new FormData(); fd.append('photo', await toJpeg(file), 'avatar.jpg');
+      const res = await fetch('/api/member/photo', { method: 'POST', body: fd });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error ?? 'No pudimos subir la foto.');
+      document.getElementById('photo-box')!.innerHTML =
+        `<img src="${out.photo_url}" alt="Tu foto de perfil" class="size-36 rounded-full object-cover" />`;
+      say(photoStatus, 'Foto actualizada.', 'ok');
+    } catch (err) {
+      say(photoStatus, err instanceof Error && err.message !== 'x' ? err.message : 'No pudimos leer esa imagen. Prueba con un JPG o PNG.', 'err');
+    }
+    photoInput.value = '';
+  });
+</script>

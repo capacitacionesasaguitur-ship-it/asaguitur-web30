@@ -1,0 +1,88 @@
+---
+import ProfilePanel from './ProfilePanel.astro';
+import PaymentsPanel from './PaymentsPanel.astro';
+import DocumentLibrary from './DocumentLibrary.astro';
+import EventsManager from './EventsManager.astro';
+import type { MemberData, Member } from '../lib/member';
+
+interface Props { data: MemberData & { member: Member }; pagosInfo?: string; flash?: string }
+const { data, pagosInfo, flash } = Astro.props;
+const { member } = data;
+
+const TABS = [
+  { id: 'perfil', label: 'Mi perfil' },
+  { id: 'pagos', label: 'Pagos y cuotas' },
+  { id: 'biblioteca', label: 'Biblioteca' },
+  { id: 'eventos', label: 'Capacitaciones y eventos' },
+];
+---
+<section class="mx-auto max-w-5xl px-4 py-8">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-navy-700">Hola, {member.full_name.split(' ')[0]}</h1>
+      <p class="mt-1 text-sm text-navy-900/75">Carné {member.carnet}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href={`/carnet/${member.id}`} class="rounded-lg bg-navy-700 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-900">Ver mi carné digital (QR)</a>
+      <form method="post" action="/api/auth/logout">
+        <button class="rounded-lg border border-navy-900/25 px-4 py-2 text-sm font-semibold hover:bg-navy-100">Cerrar sesión</button>
+      </form>
+    </div>
+  </div>
+
+  {flash && <p role="status" class="mt-5 rounded-lg border border-vigente bg-vigente-100 px-4 py-3 text-sm font-semibold text-vigente">{flash}</p>}
+
+  {member.estado === 'inactivo_mora' && (
+    <p role="alert" class="mt-5 rounded-lg border border-novigente bg-novigente-100 px-4 py-3 text-sm font-medium text-novigente">
+      Tu cuenta está inactiva por mora: tu perfil no se muestra en el directorio y tu carné digital aparece como "no activo". Se reactiva automáticamente cuando, con tus pagos, te queden 2 cuotas vencidas o menos (revisa "Pagos y cuotas").
+    </p>
+  )}
+  {member.estado === 'pendiente' && (
+    <p role="status" class="mt-5 rounded-lg border border-sol-400 bg-sol-400/20 px-4 py-3 text-sm font-medium">
+      Tu perfil está pendiente de activación. Completa tu foto, idiomas, especialidad y presentación en "Mi perfil"; cuando la Junta Directiva lo revise te activará, tu perfil aparecerá en el directorio y comenzarán tus cuotas.
+    </p>
+  )}
+  {member.estado === 'baja' && (
+    <p role="alert" class="mt-5 rounded-lg border border-novigente bg-novigente-100 px-4 py-3 text-sm font-medium text-novigente">
+      Tu membresía figura como dada de baja. Comunícate con la Junta Directiva de ASAGUITUR.
+    </p>
+  )}
+
+  <div role="tablist" aria-label="Secciones del portal" class="mt-6 flex gap-1 overflow-x-auto border-b border-navy-900/15">
+    {TABS.map((t) => (
+      <button type="button" role="tab" id={`tab-btn-${t.id}`} data-tab={t.id} aria-controls={`tab-${t.id}`} aria-selected="false" tabindex="-1"
+              class="-mb-px shrink-0 border-b-4 border-transparent px-4 py-3 text-sm font-semibold hover:bg-navy-100 aria-selected:border-navy-700 aria-selected:text-navy-700">
+        {t.label}
+      </button>
+    ))}
+  </div>
+
+  <div id="tab-perfil" role="tabpanel" aria-labelledby="tab-btn-perfil" class="pt-6" hidden><ProfilePanel member={member} /></div>
+  <div id="tab-pagos" role="tabpanel" aria-labelledby="tab-btn-pagos" class="pt-6" hidden><PaymentsPanel member={member} payments={data.payments} cuotas={data.cuotas} cuenta={data.cuenta} pagosInfo={pagosInfo} /></div>
+  <div id="tab-biblioteca" role="tabpanel" aria-labelledby="tab-btn-biblioteca" class="pt-6" hidden><DocumentLibrary documents={data.documents} active={member.active} /></div>
+  <div id="tab-eventos" role="tabpanel" aria-labelledby="tab-btn-eventos" class="pt-6" hidden><EventsManager events={data.events} registrations={data.registrations} active={member.active} /></div>
+</section>
+
+<script>
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('[role=tab]')];
+  const ids = tabs.map((t) => t.dataset.tab!);
+
+  function show(id: string, focus = false) {
+    for (const t of tabs) {
+      const on = t.dataset.tab === id;
+      t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1;
+      document.getElementById(`tab-${t.dataset.tab}`)!.hidden = !on;
+      if (on && focus) t.focus();
+    }
+    history.replaceState(null, '', `#${id}`);
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => show(t.dataset.tab!));
+    t.addEventListener('keydown', (e) => {
+      const k = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (k) { e.preventDefault(); show(ids[(i + k + ids.length) % ids.length], true); }
+    });
+  });
+  const initial = location.hash.slice(1);
+  show(ids.includes(initial) ? initial : 'perfil');
+</script>

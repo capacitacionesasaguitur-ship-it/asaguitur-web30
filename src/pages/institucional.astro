@@ -1,0 +1,133 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Textos basados en los Estatutos de ASAGUITUR (Acuerdo Ejecutivo No. 045), redactados en tono cercano.
+// Si la Junta ajusta alguna redacción, se cambia aquí: la página se arma sola a partir de estas listas.
+const atributos = ['Apolítica', 'No lucrativa', 'No religiosa'];
+
+const datos = [
+  { k: 'Constituida', v: '24 de noviembre de 2014', iso: '2014-11-24' },
+  { k: 'Personería jurídica', v: '19 de marzo de 2015', iso: '2015-03-19', nota: 'Acuerdo Ejecutivo No. 045' },
+  { k: 'Domicilio', v: 'San Salvador' },
+];
+
+const fines = [
+  { t: 'Redes y alianzas', d: 'Fortalecer el trabajo de los guías turísticos de El Salvador, estableciendo redes y alianzas en las diferentes zonas del país.' },
+  { t: 'Servicio de calidad', d: 'Fomentar a nivel nacional la implementación de las normas de calidad Guías Turísticos: «Requisitos para la prestación del servicio».' },
+  { t: 'Formación y derechos', d: 'Proveer capacitación constante a los asociados y velar por sus deberes y derechos.' },
+  { t: 'Guías del país', d: 'Promover que los operadores de turismo se apoyen en guías turísticos del país.' },
+];
+
+const cargos = ['Presidente', 'Vicepresidente', 'Secretario', 'Tesorero', 'Síndico'];
+const reglas = [
+  'Elegida por la Asamblea General con voto secreto',
+  'Períodos de tres años, con posibilidad de reelección',
+  'Se reúne una vez al mes',
+];
+---
+<BaseLayout
+  title="Nuestra asociación"
+  description="ASAGUITUR es una asociación apolítica, no lucrativa ni religiosa, con personería jurídica otorgada por el Ministerio de Gobernación y Desarrollo Territorial de El Salvador. Conoce lo que nos mueve, nuestro compromiso ético y quiénes nos dirigen."
+>
+  <main>
+    <!-- Encabezado -->
+    <section class="mx-auto max-w-6xl px-4 pb-8 pt-12">
+      <p class="text-sm font-semibold uppercase tracking-wide text-magenta-700">Institucional</p>
+      <h1 class="mt-2 max-w-3xl text-4xl font-bold leading-tight text-navy-700 sm:text-5xl">Nuestra asociación</h1>
+      <p class="mt-4 max-w-2xl text-lg">
+        Somos la Asociación Salvadoreña de Guías Turísticos (ASAGUITUR): guías de todo el país que trabajamos juntos
+        para que cada visitante viva El Salvador con calidad, formación y ética.
+      </p>
+    </section>
+
+    <!-- Quiénes somos -->
+    <section id="naturaleza" aria-labelledby="naturaleza-t" class="mx-auto max-w-6xl px-4 py-8">
+      <div class="rounded-3xl border border-navy-100 bg-white p-6 sm:p-8">
+        <h2 id="naturaleza-t" class="text-2xl font-bold">Quiénes somos</h2>
+        <ul class="mt-4 flex flex-wrap gap-2" aria-label="Carácter de la asociación">
+          {atributos.map((a) => (
+            <li class="rounded-full bg-navy-100 px-4 py-1.5 text-sm font-bold text-navy-700">{a}</li>
+          ))}
+        </ul>
+        <p class="mt-5 max-w-3xl">
+          Todo lo que la asociación recibe se destina a cumplir sus objetivos: no se reparten ganancias entre los socios.
+          Contamos con personería jurídica otorgada por el Ministerio de Gobernación y Desarrollo Territorial, estamos
+          inscritos en el Registro de Asociaciones y Fundaciones sin Fines de Lucro y nos regimos por la ley que lleva ese nombre.
+        </p>
+        <dl class="mt-6 grid gap-3 sm:grid-cols-3">
+          {datos.map((x) => (
+            <div class="rounded-2xl bg-fondo p-4">
+              <dt class="text-sm text-navy-900/75">{x.k}</dt>
+              <dd class="mt-1 font-display text-lg font-bold">
+                {x.iso ? <time datetime={x.iso}>{x.v}</time> : x.v}
+              </dd>
+              {x.nota && <dd class="text-sm text-navy-900/75">{x.nota}</dd>}
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+
+    <!-- Lo que nos mueve -->
+    <section id="fines" aria-labelledby="fines-t" class="mx-auto max-w-6xl px-4 py-8">
+      <h2 id="fines-t" class="text-2xl font-bold">Lo que nos mueve</h2>
+      <p class="mt-2 max-w-2xl text-navy-900/80">Algunos de los fines de la asociación, según el Artículo Cuarto de nuestros Estatutos.</p>
+      <ol class="mt-6 grid gap-4 sm:grid-cols-2">
+        {fines.map((f, i) => (
+          <li class="flex gap-4 rounded-2xl border border-navy-100 bg-white p-5">
+            <span aria-hidden="true" class="flex size-10 shrink-0 items-center justify-center rounded-full bg-navy-700 font-display text-lg font-bold text-white">{i + 1}</span>
+            <div>
+              <h3 class="text-lg font-bold">{f.t}</h3>
+              <p class="mt-1 text-navy-900/85">{f.d}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <!-- Compromiso social y ético -->
+    <section id="etica" aria-labelledby="etica-t" class="mx-auto max-w-6xl px-4 py-8">
+      <div class="relative overflow-hidden rounded-3xl bg-ciruela-700 p-6 text-white sm:p-10">
+        <img src="/icon-192.png" alt="" width="192" height="192" aria-hidden="true"
+             class="pointer-events-none absolute -bottom-10 -right-8 size-56 opacity-15" />
+        <div class="relative max-w-3xl">
+          <p class="text-sm font-semibold uppercase tracking-wide text-sol-400">Compromiso social y ético</p>
+          <h2 id="etica-t" class="mt-2 text-2xl font-bold sm:text-3xl">Turismo que protege a las personas</h2>
+          <p class="mt-4 text-lg leading-relaxed">
+            Entre nuestros fines está difundir el <em>Código Ético Mundial para el Turismo</em> y fomentar la erradicación
+            de la explotación sexual de la niñez, la adolescencia y la trata de personas. Es un compromiso que asumimos con firmeza.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quiénes nos dirigen -->
+    <section id="gobierno" aria-labelledby="gobierno-t" class="mx-auto max-w-6xl px-4 py-8">
+      <h2 id="gobierno-t" class="text-2xl font-bold">Quiénes nos dirigen</h2>
+      <p class="mt-2 max-w-2xl text-navy-900/80">
+        La asociación la gobiernan la Asamblea General, que es su máxima autoridad, y la Junta Directiva, integrada por:
+      </p>
+      <ul class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {cargos.map((c) => (
+          <li class="rounded-2xl border border-navy-100 border-t-4 border-t-magenta-600 bg-white px-4 py-5 text-center font-display text-lg font-bold text-navy-700">{c}</li>
+        ))}
+        <li class="rounded-2xl border border-navy-100 border-t-4 border-t-magenta-600 bg-white px-4 py-5 text-center font-display text-lg font-bold text-navy-700">
+          Vocales <span class="block text-sm font-normal text-navy-900/75">(dos)</span>
+        </li>
+      </ul>
+      <ul class="mt-5 flex flex-wrap gap-2" aria-label="Cómo funciona la Junta Directiva">
+        {reglas.map((r) => (
+          <li class="rounded-full bg-magenta-100 px-4 py-1.5 text-sm font-semibold text-magenta-700">{r}</li>
+        ))}
+      </ul>
+    </section>
+
+    <!-- Cierre -->
+    <section class="mx-auto max-w-6xl px-4 pb-4 pt-8">
+      <div class="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-navy-100 bg-white p-6">
+        <p class="max-w-xl text-lg font-semibold">¿Buscas un guía con carné vigente? Todos los del directorio son socios de ASAGUITUR.</p>
+        <a href="/directorio" class="rounded-xl bg-navy-700 px-6 py-3 font-semibold text-white hover:bg-navy-900">Ver directorio de guías</a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

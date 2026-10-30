@@ -1,0 +1,142 @@
+---
+import { CATEGORIAS_DOC } from '../lib/catalogs';
+interface Props { documents: any[]; events: any[] }
+const { documents, events } = Astro.props;
+const money = new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' });
+const dt = new Intl.DateTimeFormat('es-SV', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/El_Salvador' });
+const lbl = 'block text-sm font-semibold';
+const inp = 'mt-1 w-full rounded-lg border border-navy-900/25 bg-white px-3 py-2';
+---
+<div class="grid gap-10 xl:grid-cols-2">
+  <!-- Documentos -->
+  <section aria-labelledby="docs-t">
+    <h2 id="docs-t" class="text-xl font-bold">Biblioteca digital</h2>
+    <form id="doc-form" class="mt-4 space-y-3 rounded-2xl border border-navy-100 bg-white p-5">
+      <div><label for="d-title" class={lbl}>Título</label><input id="d-title" required minlength="3" maxlength="160" class={inp} /></div>
+      <div>
+        <label for="d-cat" class={lbl}>Categoría</label>
+        <select id="d-cat" required class={inp}>
+          <option value="">Elige una</option>
+          {Object.entries(CATEGORIAS_DOC).map(([k, v]) => <option value={k}>{v}</option>)}
+        </select>
+      </div>
+      <div><label for="d-desc" class={lbl}>Descripción (opcional)</label><textarea id="d-desc" rows="2" maxlength="600" class={inp}></textarea></div>
+      <div><label for="d-kw" class={lbl}>Palabras clave para el buscador (opcional)</label><input id="d-kw" maxlength="300" placeholder="Ej. reglamento, guías, licencia" class={inp} /></div>
+      <div><label for="d-file" class={lbl}>Archivo PDF (máximo 20 MB)</label><input id="d-file" type="file" accept="application/pdf" required class={inp} /></div>
+      <label class="flex items-center gap-2 text-sm"><input id="d-pub" type="checkbox" checked /> Publicar de inmediato</label>
+      <div class="flex flex-wrap items-center gap-3">
+        <button class="rounded-xl bg-navy-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-900 disabled:opacity-60">Subir documento</button>
+        <p id="d-status" role="status" aria-live="polite" class="text-sm"></p>
+      </div>
+    </form>
+
+    <div class="mt-4 overflow-x-auto rounded-2xl border border-navy-100 bg-white">
+      <table class="w-full min-w-[420px] text-left text-sm">
+        <thead class="border-b border-navy-100 text-navy-900/75"><tr><th scope="col" class="px-3 py-2 font-semibold">Documento</th><th scope="col" class="px-3 py-2 font-semibold">Estado</th><th scope="col" class="px-3 py-2"><span class="sr-only">Acción</span></th></tr></thead>
+        <tbody class="divide-y divide-navy-100">
+          {documents.length === 0 && <tr><td colspan="3" class="px-3 py-4">Aún no hay documentos.</td></tr>}
+          {documents.map((d) => (
+            <tr>
+              <td class="px-3 py-2"><p class="font-semibold">{d.title}</p><p class="text-xs text-navy-900/70">{CATEGORIAS_DOC[d.category] ?? d.category}</p></td>
+              <td class="px-3 py-2">{d.published ? 'Publicado' : 'Oculto'}</td>
+              <td class="px-3 py-2"><button type="button" data-doc-toggle={d.id} data-published={String(d.published)} class="rounded-lg border border-navy-700 px-3 py-1.5 text-xs font-semibold text-navy-700 hover:bg-navy-100">{d.published ? 'Ocultar' : 'Publicar'}</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Eventos -->
+  <section aria-labelledby="ev-t">
+    <h2 id="ev-t" class="text-xl font-bold">Capacitaciones y eventos</h2>
+    <form id="ev-form" class="mt-4 space-y-3 rounded-2xl border border-navy-100 bg-white p-5">
+      <div><label for="e-title" class={lbl}>Título</label><input id="e-title" required minlength="3" maxlength="160" class={inp} /></div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div><label for="e-start" class={lbl}>Inicio</label><input id="e-start" type="datetime-local" required class={inp} /></div>
+        <div><label for="e-end" class={lbl}>Cierre (opcional)</label><input id="e-end" type="datetime-local" class={inp} /></div>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div><label for="e-speaker" class={lbl}>Ponente</label><input id="e-speaker" maxlength="160" class={inp} /></div>
+        <div><label for="e-place" class={lbl}>Lugar</label><input id="e-place" maxlength="200" class={inp} /></div>
+      </div>
+      <div><label for="e-summary" class={lbl}>Resumen</label><textarea id="e-summary" rows="2" maxlength="600" class={inp}></textarea></div>
+      <div><label for="e-agenda" class={lbl}>Temario (un punto por línea)</label><textarea id="e-agenda" rows="4" maxlength="4000" class={inp}></textarea></div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div><label for="e-cap" class={lbl}>Cupos</label><input id="e-cap" type="number" min="1" max="1000" required class={inp} /></div>
+        <div><label for="e-price" class={lbl}>Precio para socios (USD, 0 = gratis)</label><input id="e-price" type="number" min="0" step="0.01" value="0" required class={inp} /></div>
+      </div>
+      <label class="flex items-center gap-2 text-sm"><input id="e-pub" type="checkbox" /> Publicar ahora (si no, queda como borrador)</label>
+      <div class="flex flex-wrap items-center gap-3">
+        <button class="rounded-xl bg-navy-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-navy-900 disabled:opacity-60">Crear evento</button>
+        <p id="e-status" role="status" aria-live="polite" class="text-sm"></p>
+      </div>
+    </form>
+
+    <div class="mt-4 overflow-x-auto rounded-2xl border border-navy-100 bg-white">
+      <table class="w-full min-w-[460px] text-left text-sm">
+        <thead class="border-b border-navy-100 text-navy-900/75"><tr><th scope="col" class="px-3 py-2 font-semibold">Evento</th><th scope="col" class="px-3 py-2 font-semibold">Estado</th><th scope="col" class="px-3 py-2"><span class="sr-only">Acción</span></th></tr></thead>
+        <tbody class="divide-y divide-navy-100">
+          {events.length === 0 && <tr><td colspan="3" class="px-3 py-4">Aún no hay eventos.</td></tr>}
+          {events.map((e) => (
+            <tr>
+              <td class="px-3 py-2"><p class="font-semibold">{e.title}</p><p class="text-xs text-navy-900/70">{dt.format(new Date(e.starts_at))}, {e.capacity} cupos, {Number(e.price_member) === 0 ? 'gratis' : money.format(Number(e.price_member))}</p></td>
+              <td class="px-3 py-2">{e.published ? 'Publicado' : 'Borrador'}</td>
+              <td class="px-3 py-2"><button type="button" data-ev-toggle={e.id} data-published={String(e.published)} class="rounded-lg border border-navy-700 px-3 py-1.5 text-xs font-semibold text-navy-700 hover:bg-navy-100">{e.published ? 'Despublicar' : 'Publicar'}</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+  import { postJson, uploadFile } from '../lib/admin-client';
+  const v = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
+  const checked = (id: string) => (document.getElementById(id) as HTMLInputElement).checked;
+  const say = (id: string, msg: string, err = false) => { const el = document.getElementById(id)!; el.textContent = msg; el.className = `text-sm font-semibold ${err ? 'text-novigente' : 'text-vigente'}`; };
+  const reload = () => setTimeout(() => location.reload(), 700);
+
+  // Subir PDF: primero va directo a Storage, luego se registra en la biblioteca
+  document.getElementById('doc-form')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = (e.target as HTMLFormElement).querySelector('button')!;
+    const file = (document.getElementById('d-file') as HTMLInputElement).files?.[0];
+    if (!file) return say('d-status', 'Elige un archivo PDF.', true);
+    btn.disabled = true; say('d-status', 'Subiendo archivo…');
+    try {
+      const up = await uploadFile('documents', file);
+      await postJson('/api/admin/documents', {
+        id: up.id, title: v('d-title'), category: v('d-cat'), description: v('d-desc'), keywords: v('d-kw'), published: checked('d-pub'),
+      });
+      say('d-status', 'Documento agregado a la biblioteca.'); reload();
+    } catch (err) { say('d-status', (err as Error).message, true); btn.disabled = false; }
+  });
+
+  document.getElementById('ev-form')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = (e.target as HTMLFormElement).querySelector('button')!;
+    btn.disabled = true; say('e-status', 'Guardando…');
+    try {
+      await postJson('/api/admin/events', {
+        title: v('e-title'), starts_at: v('e-start'), ends_at: v('e-end') || null, speaker: v('e-speaker'), location: v('e-place'),
+        summary: v('e-summary'), agenda: v('e-agenda'), capacity: Number(v('e-cap')), price_member: Number(v('e-price')), published: checked('e-pub'),
+      });
+      say('e-status', 'Evento creado.'); reload();
+    } catch (err) { say('e-status', (err as Error).message, true); btn.disabled = false; }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-doc-toggle],[data-ev-toggle]').forEach((b) => {
+    b.addEventListener('click', async () => {
+      const isDoc = b.hasAttribute('data-doc-toggle');
+      b.disabled = true;
+      try {
+        await postJson(isDoc ? '/api/admin/documents' : '/api/admin/events', {
+          action: 'toggle', id: b.dataset[isDoc ? 'docToggle' : 'evToggle'], published: b.dataset.published !== 'true',
+        });
+        location.reload();
+      } catch (err) { alert((err as Error).message); b.disabled = false; }
+    });
+  });
+</script>

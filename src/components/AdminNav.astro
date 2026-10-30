@@ -1,0 +1,19 @@
+---
+interface Props { current: 'panel' | 'boletin' | 'finanzas'; rol?: 'junta' | 'tesorero' }
+const { current, rol = 'junta' } = Astro.props;
+const links = [
+  { id: 'panel', href: '/admin', label: 'Panel de la Junta', junta: true },
+  { id: 'finanzas', href: '/admin/finanzas', label: 'Finanzas', junta: false },
+  { id: 'boletin', href: '/admin/boletin', label: 'Boletines y recordatorios', junta: true },
+  { id: 'socio', href: '/socio', label: 'Mi portal de socio', junta: false },
+].filter((l) => rol === 'junta' || !l.junta);
+---
+<nav aria-label="Administración" class="border-b border-navy-100 bg-navy-900 text-white">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-1 px-4 py-2 text-sm font-semibold">
+    <span class="mr-3 font-display text-base">{rol === 'junta' ? 'Junta Directiva' : 'Tesorería'}</span>
+    {links.map((l) => (
+      <a href={l.href} aria-current={l.id === current ? 'page' : undefined}
+         class="rounded-lg px-3 py-1.5 hover:bg-white/15 aria-[current=page]:bg-white aria-[current=page]:text-navy-900">{l.label}</a>
+    ))}
+  </div>
+</nav>

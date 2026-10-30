@@ -1,0 +1,83 @@
+---
+import '../styles/global.css';
+interface Props { title: string; description?: string; noindex?: boolean }
+const { title, noindex = false, description = 'Directorio oficial de guías turísticos socios de ASAGUITUR, El Salvador.' } = Astro.props;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#191838" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ASAGUITUR" />
+    <meta property="og:title" content={`${title} | ASAGUITUR`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={new URL('/og-image.png', Astro.url).href} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>{title} | ASAGUITUR</title>
+    <slot name="head" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body class="min-h-screen antialiased">
+    <slot name="top" />
+    <header class="border-b border-navy-100 bg-white">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-y-2 px-4 py-4">
+        <a href="/" aria-label="ASAGUITUR, ir al inicio">
+          <img src="/logo-header.png" alt="ASAGUITUR, Asociación Salvadoreña de Guías Turísticos" width="358" height="96" class="h-11 w-auto sm:h-12" />
+        </a>
+        <nav aria-label="Principal" class="flex flex-wrap gap-1 text-sm font-medium"><a href="/directorio" class="rounded-lg px-3 py-2 hover:bg-navy-100">Directorio de guías</a><a href="/institucional" class="rounded-lg px-3 py-2 hover:bg-navy-100">Institucional</a><a href="/login" class="rounded-lg px-3 py-2 hover:bg-navy-100">Acceso socios</a></nav>
+      </div>
+    </header>
+    <div aria-hidden="true" class="flex h-1.5">
+      <span class="flex-1 bg-sol-400"></span><span class="flex-1 bg-lima-400"></span><span class="flex-1 bg-cielo-600"></span>
+      <span class="flex-1 bg-magenta-600"></span><span class="flex-1 bg-ciruela-700"></span><span class="flex-1 bg-navy-700"></span>
+    </div>
+
+    <slot />
+
+    <footer class="mt-16 border-t border-navy-100 bg-white">
+      <div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 text-sm md:grid-cols-[1.6fr_1fr]">
+        <div>
+          <p class="max-w-xl leading-relaxed text-navy-900/80">
+            Asociación Salvadoreña de Guías Turísticos (ASAGUITUR) - Regulada bajo la Ley de Asociaciones y Fundaciones sin Fines de Lucro. Personería Jurídica según Acuerdo Ejecutivo No. 045.
+          </p>
+          <p class="mt-3 max-w-xl text-navy-900/80">
+            Entidad apolítica, no lucrativa ni religiosa. Comprometida con la erradicación de la explotación sexual de la niñez y la adolescencia y de la trata de personas.
+          </p>
+        </div>
+        <nav aria-label="Pie de página">
+          <ul class="space-y-2 font-semibold">
+            <li><a href="/directorio" class="hover:underline">Directorio de guías</a></li>
+            <li><a href="/institucional" class="hover:underline">Nuestra asociación</a></li>
+            <li><a href="/login" class="hover:underline">Acceso socios</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="border-t border-navy-100 px-4 py-4 text-center text-xs text-navy-900/70">
+        © {new Date().getFullYear()} ASAGUITUR. Todos los guías del directorio son socios con carné vigente.
+      </div>
+    </footer>
+
+    <!-- Rastreo de clics a WhatsApp: lo invocan los botones con onclick="trackWhatsAppClick(id)" -->
+    <script is:inline>
+      window.trackWhatsAppClick = function (guideId) {
+        try {
+          var body = JSON.stringify({ guide_id: guideId, source: location.pathname });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/track-click', new Blob([body], { type: 'application/json' }));
+          } else {
+            fetch('/api/track-click', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true });
+          }
+        } catch (e) { /* el rastreo nunca debe impedir abrir WhatsApp */ }
+      };
+    </script>
+  </body>
+</html>

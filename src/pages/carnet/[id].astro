@@ -1,0 +1,108 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import QRCodeGenerator from '../../components/QRCodeGenerator.astro';
+import { getCarnet, isExpired, isVigente, svDate, svDateTime, type Carnet } from '../../lib/carnet';
+import { carnetUrl } from '../../lib/qr';
+
+export const prerender = false;
+
+const { id = '' } = Astro.params;
+
+// Estado en vivo: nunca se cachea (ni en el navegador ni en el CDN de Netlify)
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+let c: Carnet | null = null;
+let unavailable = false;
+try { c = await getCarnet(id); } catch (e) { console.error(e); unavailable = true; }
+
+if (unavailable) Astro.response.status = 503;
+else if (!c) Astro.response.status = 404;
+
+const vigente = !!c && isVigente(c);
+const expired = !!c && c.active && isExpired(c);
+const verifiedAt = svDateTime(new Date());
+const url = carnetUrl(id, Astro.url.origin);
+const initials = (c?.full_name ?? '').split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+
+const motivo = !c
+  ? 'El código consultado no corresponde a ningún carné registrado en la Asociación Salvadoreña de Guías Turísticos.'
+  : expired
+    ? `La vigencia de este carné venció el ${svDate(c.valid_until!)}. La credencial no se encuentra activa en el registro oficial de ASAGUITUR.`
+    : 'Esta credencial no se encuentra activa en el registro oficial de la Asociación Salvadoreña de Guías Turísticos (ASAGUITUR). La persona que la presenta no puede acreditarse como socio activo de la asociación.';
+---
+<BaseLayout title={vigente ? `Carné de ${c!.full_name}` : 'Verificación de carné'} noindex>
+  <!-- Banner superior: lo primero que ve quien escanea el QR -->
+  <div slot="top" role="status"
+       class={`px-4 py-5 text-center text-base font-bold leading-snug text-white sm:text-lg ${unavailable ? 'bg-navy-900' : vigente ? 'bg-vigente' : 'bg-novigente'}`}>
+    {unavailable
+      ? '⚠️ VERIFICACIÓN NO DISPONIBLE EN ESTE MOMENTO'
+      : vigente
+        ? '🟢 SOCIO ACTIVO · ASAGUITUR'
+        : '🔴 NO ES SOCIO ACTIVO'}
+  </div>
+
+  <main class="mx-auto max-w-md px-4 py-6">
+    {unavailable ? (
+      <section class="rounded-3xl border-2 border-navy-900 bg-white p-6">
+        <h1 class="text-xl font-bold">No pudimos consultar el registro</h1>
+        <p class="mt-3">Este resultado no indica que el carné sea inválido. Recargue la página en unos minutos.</p>
+      </section>
+    ) : vigente && c ? (
+      <>
+        <article class="overflow-hidden rounded-3xl border-2 border-vigente bg-white">
+          <div class="border-b-4 border-navy-700 bg-white px-5 py-3">
+            <img src="/logo-header.png" alt="ASAGUITUR, Asociación Salvadoreña de Guías Turísticos" width="358" height="96" class="mx-auto h-12 w-auto" />
+          </div>
+
+          <div class="flex flex-col items-center px-5 pt-6 text-center">
+            {c.photo_url ? (
+              <img src={c.photo_url} alt={`Foto de ${c.full_name}`} width="128" height="128" class="size-32 rounded-full border-4 border-vigente-100 object-cover" />
+            ) : (
+              <div role="img" aria-label="Sin foto" class="flex size-32 items-center justify-center rounded-full bg-navy-700 font-display text-4xl font-bold text-white">{initials}</div>
+            )}
+            <h1 class="mt-4 text-2xl font-bold leading-tight">{c.full_name}</h1>
+            <p class="text-sm text-navy-900/75">Guía turístico · Socio activo</p>
+          </div>
+
+          <dl class="mt-5 divide-y divide-navy-100 px-5 text-sm">
+            <div class="flex justify-between gap-4 py-2.5"><dt class="text-navy-900/75">Carné N.º</dt><dd class="font-semibold">{c.carnet}</dd></div>
+            <div class="flex justify-between gap-4 py-2.5"><dt class="text-navy-900/75">RNT</dt><dd class="font-semibold">{c.rnt}</dd></div>
+            {c.member_since && <div class="flex justify-between gap-4 py-2.5"><dt class="text-navy-900/75">Socio desde</dt><dd class="font-semibold">{svDate(c.member_since)}</dd></div>}
+            <div class="flex justify-between gap-4 py-2.5"><dt class="text-navy-900/75">Estado</dt><dd class="font-semibold text-vigente">Socio activo</dd></div>
+          </dl>
+
+          <!-- Sello digital de verificación oficial -->
+          <div class="m-5 flex items-center gap-3 rounded-2xl bg-vigente-100 p-4">
+            <svg viewBox="0 0 64 64" class="size-14 shrink-0 text-vigente" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3">
+              <circle cx="32" cy="32" r="28" /><circle cx="32" cy="32" r="22" stroke-dasharray="3 3" />
+              <path d="M21 33l8 8 14-17" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div class="text-sm">
+              <p class="font-bold text-vigente">Sello de verificación oficial</p>
+              <p>Registro verificado el {verifiedAt}</p>
+            </div>
+          </div>
+        </article>
+
+        <section class="mt-6 flex flex-col items-center rounded-3xl border border-navy-100 bg-white p-6 text-center">
+          <h2 class="text-lg font-bold">Código QR de verificación</h2>
+          <p class="mt-1 text-sm">Escanéalo para comprobar este carné en tiempo real.</p>
+          <div class="mt-4"><QRCodeGenerator url={url} /></div>
+          <p class="mt-3 break-all text-xs text-navy-900/70">{url}</p>
+        </section>
+
+        <p class="mt-6 text-center text-xs text-navy-900/70">
+          No acepte capturas de pantalla como prueba de vigencia: abra esta página o escanee el QR para ver el estado actual.
+        </p>
+      </>
+    ) : (
+      <section class="rounded-3xl border-2 border-novigente bg-white p-6">
+        <h1 class="text-xl font-bold text-novigente">Esta persona no es socio activo</h1>
+        <p class="mt-3">{motivo}</p>
+        {c && <p class="mt-4 text-sm"><span class="text-navy-900/75">Carné consultado: </span><strong>{c.carnet}</strong></p>}
+        <p class="mt-4 text-sm">Si usted es socio y considera que se trata de un error, comuníquese con la Junta Directiva de ASAGUITUR.</p>
+        <p class="mt-4 border-t border-navy-100 pt-3 text-xs text-navy-900/70">Consulta realizada el {verifiedAt}</p>
+      </section>
+    )}
+  </main>
+</BaseLayout>

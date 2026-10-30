@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminNav from '../../components/AdminNav.astro';
+import AdminFinanzas from '../../components/AdminFinanzas.astro';
+import { cargarFinanzas } from '../../lib/finanzas';
+import { supabaseAdmin } from '../../lib/supabase';
+
+export const prerender = false; // el middleware ya verificó sesión y rol (junta o tesorero)
+
+const data = supabaseAdmin ? await cargarFinanzas() : null;
+---
+<BaseLayout title="Finanzas" noindex>
+  <AdminNav slot="top" current="finanzas" rol={Astro.locals.adminRole} />
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    <h1 class="text-3xl font-bold text-navy-700">Finanzas y cuotas</h1>
+    {!data ? (
+      <p role="alert" class="mt-6 rounded-lg border border-novigente bg-novigente-100 px-4 py-3 font-medium text-novigente">Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor.</p>
+    ) : <AdminFinanzas data={data} />}
+  </main>
+</BaseLayout>

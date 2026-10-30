@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Colores corporativos de ASAGUITUR, tomados del logo */
+  --color-navy-700: #191838;      /* azul marino del logo: textos, botones, encabezados */
+  --color-navy-900: #0e0d24;      /* marino más profundo: hover y barras oscuras */
+  --color-navy-100: #e8e8f2;      /* tinte suave para bordes y fondos */
+  --color-magenta-600: #ca176b;   /* magenta del logo */
+  --color-magenta-700: #a31258;   /* magenta oscuro: texto sobre tinte (contraste AA) */
+  --color-magenta-100: #fbe3ee;
+  --color-sol-400: #ffe529;       /* amarillo del logo */
+  --color-sol-600: #e3b100;       /* amarillo más profundo: estrellas de calificación */
+  --color-cielo-600: #268dc7;     /* azul del logo: foco de teclado */
+  --color-lima-400: #c8cf67;      /* verde lima del logo */
+  --color-ciruela-700: #7b2a65;   /* ciruela del logo */
+  --color-fondo: #f5f5fa;
+
+  /* Colores de significado (no cambian con la marca) */
+  --color-wa: #128c4a;
+  --color-wa-hover: #0e7a3f;
+  --color-vigente: #146c3a;
+  --color-vigente-100: #def5e7;
+  --color-novigente: #b42318;
+  --color-novigente-100: #fde8e6;
+}
+
+@layer base {
+  html { background: var(--color-fondo); color: var(--color-navy-700); font-family: var(--font-sans); }
+  h1, h2, h3 { font-family: var(--font-display); }
+  :focus-visible { outline: 3px solid var(--color-cielo-600); outline-offset: 2px; }
+}

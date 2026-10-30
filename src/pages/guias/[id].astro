@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import GuideCard from '../../components/GuideCard.astro';
+import GuideReviews from '../../components/GuideReviews.astro';
+import { getGuide, getApprovedReviews } from '../../lib/guides';
+
+const { id } = Astro.params;
+const guide = id ? await getGuide(id) : null;
+if (!guide) return new Response(null, { status: 404 });
+const reviews = await getApprovedReviews(guide.id);
+---
+<BaseLayout title={guide.full_name} description={`Perfil de ${guide.full_name}, guía turístico socio de ASAGUITUR.`}>
+  <main class="mx-auto max-w-6xl px-4 py-10">
+    <a href="/directorio" class="text-sm font-semibold text-navy-700 hover:underline">Volver al directorio</a>
+    <div class="mt-6 grid gap-8 lg:grid-cols-[360px_1fr]">
+      <GuideCard guide={guide} />
+      <div>
+        <h1 class="text-3xl font-bold text-navy-700">{guide.full_name}</h1>
+        <p class="mt-3 max-w-prose">{guide.bio ?? 'Este guía aún no ha agregado una descripción.'}</p>
+      </div>
+    </div>
+    <div class="mt-12">
+      <GuideReviews guideId={guide.id} guideName={guide.full_name} reviews={reviews} />
+    </div>
+  </main>
+</BaseLayout>

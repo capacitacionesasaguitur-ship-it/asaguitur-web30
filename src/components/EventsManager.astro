@@ -1,0 +1,86 @@
+---
+import type { EventItem, Registration } from '../lib/member';
+
+interface Props { events: EventItem[]; registrations: Registration[]; active: boolean }
+const { events, registrations, active } = Astro.props;
+
+const money = new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' });
+const when = new Intl.DateTimeFormat('es-SV', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/El_Salvador' });
+const regOf = (id: string) => registrations.find((r) => r.event_id === id && r.status !== 'cancelled');
+---
+{!active ? (
+  <p class="rounded-xl border border-dashed border-navy-700/30 bg-white p-6">Las capacitaciones y eventos están disponibles solo para socios con membresía activa.</p>
+) : events.length === 0 ? (
+  <p class="rounded-xl border border-dashed border-navy-700/30 bg-white p-6">No hay talleres programados por ahora. Publicaremos aquí los próximos.</p>
+) : (
+  <ul class="grid gap-5 lg:grid-cols-2">
+    {events.map((e) => {
+      const reg = regOf(e.id);
+      const confirmed = reg?.status === 'confirmed';
+      const pending = reg?.status === 'pending';
+      const soldOut = e.seats_left <= 0 && !pending;
+      return (
+        <li class="flex flex-col rounded-2xl border border-navy-100 bg-white p-5" data-event={e.id}>
+          <h3 class="text-xl font-bold leading-snug">{e.title}</h3>
+          <p class="mt-1 text-sm font-semibold text-navy-700">{when.format(new Date(e.starts_at))}</p>
+          {e.summary && <p class="mt-2 text-sm">{e.summary}</p>}
+
+          <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            {e.speaker && <div class="col-span-2"><dt class="text-navy-900/75">Ponente</dt><dd class="font-semibold">{e.speaker}</dd></div>}
+            {e.location && <div class="col-span-2"><dt class="text-navy-900/75">Lugar</dt><dd class="font-semibold">{e.location}</dd></div>}
+            <div><dt class="text-navy-900/75">Cupos</dt><dd class="font-semibold">{soldOut ? 'Agotados' : `${e.seats_left} de ${e.capacity}`}</dd></div>
+            <div><dt class="text-navy-900/75">Precio para socios</dt><dd class="font-semibold">{e.price_member === 0 ? 'Gratis' : money.format(e.price_member)}</dd></div>
+          </dl>
+
+          {e.agenda && (
+            <details class="mt-3 rounded-lg bg-fondo px-3 py-2 text-sm">
+              <summary class="cursor-pointer font-semibold">Ver temario</summary>
+              <p class="mt-2 whitespace-pre-line">{e.agenda}</p>
+            </details>
+          )}
+
+          <div class="mt-auto pt-4">
+            {confirmed ? (
+              <p class="rounded-lg bg-vigente-100 px-4 py-2.5 text-center text-sm font-bold text-vigente">Inscripción confirmada</p>
+            ) : (
+              <button type="button" data-register={e.id} disabled={soldOut || pending}
+                      class="w-full rounded-xl bg-navy-700 px-4 py-3 text-sm font-semibold text-white hover:bg-navy-900 disabled:cursor-not-allowed disabled:bg-navy-900/40">
+                {soldOut ? 'Cupos agotados'
+                  : pending ? 'Cupo reservado · pendiente de pago'
+                  : e.price_member === 0 ? 'Inscribirme (gratis)'
+                  : `Reservar mi cupo (${money.format(e.price_member)})`}
+              </button>
+            )}
+            {pending && (
+              <p class="mt-2 text-sm">Paga {money.format(e.price_member)} en el banco y envía tu comprobante a la Tesorería. Tu inscripción se confirma al registrar el pago y recibirás tu recibo por correo.</p>
+            )}
+            <p data-msg role="status" aria-live="polite" class="mt-2 text-sm"></p>
+          </div>
+        </li>
+      );
+    })}
+  </ul>
+)}
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-register]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const msg = btn.closest('[data-event]')!.querySelector('[data-msg]') as HTMLElement;
+      const original = btn.textContent;
+      btn.disabled = true; msg.className = 'mt-2 text-sm'; msg.textContent = 'Procesando tu inscripción…';
+      try {
+        const res = await fetch('/api/member/events/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_id: btn.dataset.register }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(out.error ?? 'No pudimos procesar tu inscripción.');
+        if (out.status === 'confirmed') { window.location.href = '/socio?msg=inscrito#eventos'; return; }
+        window.location.href = '/socio?msg=reservado#eventos';   // cupo reservado: falta registrar el pago
+      } catch (e) {
+        msg.className = 'mt-2 text-sm font-semibold text-novigente'; msg.textContent = (e as Error).message;
+        btn.disabled = false; btn.textContent = original;
+      }
+    });
+  });
+</script>

@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import MemberDashboard from '../../components/MemberDashboard.astro';
+import { loadMember } from '../../lib/member';
+import { env } from '../../lib/env';
+
+export const prerender = false;
+
+const data = await loadMember(Astro.locals.supabase);
+const FLASH: Record<string, string> = {
+  clave: 'Tu contraseña quedó actualizada.',
+  inscrito: 'Tu inscripción quedó confirmada.',
+  reservado: 'Reservamos tu cupo por 7 días. Paga en el banco y envía tu comprobante a la Tesorería para confirmar la inscripción.',
+};
+const flash = FLASH[Astro.url.searchParams.get('msg') ?? ''];
+const pagosInfo = env('PAGOS_INSTRUCCIONES');
+---
+<BaseLayout title="Portal del socio" noindex>
+  {data.member ? (
+    <MemberDashboard data={{ ...data, member: data.member }} pagosInfo={pagosInfo} flash={flash} />
+  ) : (
+    <main class="mx-auto max-w-xl px-4 py-16">
+      <h1 class="text-2xl font-bold text-navy-700">Tu cuenta aún no tiene un perfil de socio</h1>
+      <p class="mt-3">Iniciaste sesión como <strong>{Astro.locals.user.email}</strong>, pero ese correo no está vinculado a ningún socio. Pide a la Junta Directiva que registre este correo en tu ficha.</p>
+      <form method="post" action="/api/auth/logout" class="mt-6"><button class="rounded-lg border border-navy-900/25 px-4 py-2 text-sm font-semibold hover:bg-navy-100">Cerrar sesión</button></form>
+    </main>
+  )}
+</BaseLayout>

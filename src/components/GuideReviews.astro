@@ -1,0 +1,117 @@
+---
+import type { Review } from '../lib/types';
+interface Props { guideId: string; guideName: string; reviews: Review[] }
+const { guideId, guideName, reviews } = Astro.props;
+
+const fmt = new Intl.DateTimeFormat('es-SV', { year: 'numeric', month: 'long', day: 'numeric' });
+const stars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n);
+---
+<section id="resenas" aria-labelledby="resenas-titulo" class="grid gap-8 lg:grid-cols-2">
+  <!-- Reseñas aprobadas -->
+  <div>
+    <h2 id="resenas-titulo" class="text-2xl font-bold">Reseñas de turistas</h2>
+    {reviews.length === 0 ? (
+      <p class="mt-4 rounded-xl border border-dashed border-navy-700/30 p-5 text-navy-900/80">
+        {guideName} aún no tiene reseñas. Si viajaste con este guía, cuéntanos cómo te fue.
+      </p>
+    ) : (
+      <ul class="mt-4 space-y-4">
+        {reviews.map((r) => (
+          <li class="rounded-xl border border-navy-100 bg-white p-4">
+            <div class="flex items-center justify-between gap-3">
+              <p class="font-semibold">{r.author_name}</p>
+              <p class="text-sol-600" aria-label={`${r.rating} de 5 estrellas`}><span aria-hidden="true">{stars(r.rating)}</span></p>
+            </div>
+            <p class="mt-2 whitespace-pre-line">{r.comment}</p>
+            <p class="mt-2 text-xs text-navy-900/70"><time datetime={r.created_at}>{fmt.format(new Date(r.created_at))}</time></p>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+
+  <!-- Formulario -->
+  <div>
+    <h2 class="text-2xl font-bold">Deja tu reseña</h2>
+    <form id="review-form" class="mt-4 space-y-4 rounded-2xl border border-navy-100 bg-white p-5" data-guide={guideId} novalidate>
+      <div>
+        <label for="author_name" class="block text-sm font-semibold">Tu nombre</label>
+        <input id="author_name" name="author_name" required minlength="2" maxlength="60" autocomplete="name"
+               class="mt-1 w-full rounded-lg border border-navy-900/25 px-3 py-2" />
+      </div>
+
+      <fieldset>
+        <legend class="text-sm font-semibold">Calificación</legend>
+        <div class="star-input mt-1 inline-flex flex-row-reverse text-3xl text-navy-900/25">
+          {[5, 4, 3, 2, 1].map((n) => (
+            <>
+              <input type="radio" id={`star-${n}`} name="rating" value={n} class="sr-only" required />
+              <label for={`star-${n}`} class="cursor-pointer px-0.5" title={`${n} ${n === 1 ? 'estrella' : 'estrellas'}`}>
+                <span aria-hidden="true">★</span><span class="sr-only">{n} {n === 1 ? 'estrella' : 'estrellas'}</span>
+              </label>
+            </>
+          ))}
+        </div>
+      </fieldset>
+
+      <div>
+        <label for="comment" class="block text-sm font-semibold">Cuéntanos sobre el servicio</label>
+        <textarea id="comment" name="comment" rows="4" required minlength="10" maxlength="800"
+                  class="mt-1 w-full rounded-lg border border-navy-900/25 px-3 py-2"></textarea>
+      </div>
+
+      <!-- Trampa anti-spam: los humanos no ven ni llenan este campo -->
+      <div class="hidden" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off" /></div>
+
+      <button type="submit" class="rounded-xl bg-navy-700 px-5 py-3 text-sm font-semibold text-white hover:bg-navy-900 disabled:opacity-60">
+        Enviar reseña
+      </button>
+      <p id="review-status" role="status" aria-live="polite" class="text-sm"></p>
+      <p class="text-xs text-navy-900/70">Revisamos cada reseña antes de publicarla.</p>
+    </form>
+  </div>
+</section>
+
+<style>
+  .star-input input:checked ~ label,
+  .star-input label:hover,
+  .star-input label:hover ~ label { color: var(--color-sol-600); }
+  .star-input input:focus-visible + label { outline: 3px solid var(--color-cielo-600); border-radius: 6px; }
+</style>
+
+<script>
+  const form = document.getElementById('review-form') as HTMLFormElement | null;
+  const status = document.getElementById('review-status') as HTMLElement | null;
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!status) return;
+    const data = Object.fromEntries(new FormData(form)) as Record<string, string>;
+    if (!data.author_name?.trim() || !data.rating || (data.comment ?? '').trim().length < 10) {
+      status.className = 'text-sm text-red-700';
+      status.textContent = 'Completa tu nombre, elige una calificación y escribe al menos 10 caracteres.';
+      return;
+    }
+    const btn = form.querySelector('button[type=submit]') as HTMLButtonElement;
+    btn.disabled = true;
+    status.className = 'text-sm';
+    status.textContent = 'Enviando…';
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, rating: Number(data.rating), guide_id: form.dataset.guide }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error ?? 'No pudimos enviar tu reseña.');
+      form.reset();
+      status.className = 'text-sm font-semibold text-magenta-700';
+      status.textContent = 'Gracias. Tu reseña se publicará cuando la aprobemos.';
+    } catch (err) {
+      status.className = 'text-sm text-red-700';
+      status.textContent = (err as Error).message + ' Inténtalo de nuevo.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>

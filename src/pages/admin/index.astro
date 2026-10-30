@@ -1,0 +1,51 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminNav from '../../components/AdminNav.astro';
+import AdminMembers from '../../components/AdminMembers.astro';
+import AdminReviews from '../../components/AdminReviews.astro';
+import AdminContent from '../../components/AdminContent.astro';
+import AdminMetrics from '../../components/AdminMetrics.astro';
+import { loadAdmin } from '../../lib/admin-data';
+import { supabaseAdmin } from '../../lib/supabase';
+
+export const prerender = false; // el middleware ya verificó sesión + rol de administrador (public.admins)
+
+const ready = !!supabaseAdmin;
+const data = ready ? await loadAdmin() : null;
+const TABS = [
+  { id: 'socios', label: 'Socios' },
+  { id: 'resenas', label: 'Reseñas', badge: data?.pending.length ?? 0 },
+  { id: 'contenido', label: 'Documentos y eventos' },
+  { id: 'metricas', label: 'Métricas e ingresos' },
+];
+---
+<BaseLayout title="Panel de la Junta" noindex>
+  <AdminNav slot="top" current="panel" />
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    <h1 class="text-3xl font-bold text-navy-700">Panel de la Junta Directiva</h1>
+
+    {!data ? (
+      <p role="alert" class="mt-6 rounded-lg border border-novigente bg-novigente-100 px-4 py-3 font-medium text-novigente">Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor.</p>
+    ) : (
+      <>
+        <div role="tablist" aria-label="Módulos del panel" class="mt-6 flex gap-1 overflow-x-auto border-b border-navy-900/15">
+          {TABS.map((t) => (
+            <button type="button" role="tab" id={`tab-btn-${t.id}`} data-tab={t.id} aria-controls={`tab-${t.id}`} aria-selected="false" tabindex="-1"
+                    class="-mb-px shrink-0 border-b-4 border-transparent px-4 py-3 text-sm font-semibold hover:bg-navy-100 aria-selected:border-navy-700 aria-selected:text-navy-700">
+              {t.label}{t.badge ? <span class="ml-2 rounded-full bg-novigente px-2 py-0.5 text-xs text-white">{t.badge}</span> : null}
+            </button>
+          ))}
+        </div>
+        <div id="tab-socios" role="tabpanel" aria-labelledby="tab-btn-socios" class="pt-6" hidden><AdminMembers members={data.members} /></div>
+        <div id="tab-resenas" role="tabpanel" aria-labelledby="tab-btn-resenas" class="pt-6" hidden><AdminReviews pending={data.pending} approved={data.approved} /></div>
+        <div id="tab-contenido" role="tabpanel" aria-labelledby="tab-btn-contenido" class="pt-6" hidden><AdminContent documents={data.documents} events={data.events} /></div>
+        <div id="tab-metricas" role="tabpanel" aria-labelledby="tab-btn-metricas" class="pt-6" hidden><AdminMetrics data={data} /></div>
+      </>
+    )}
+  </main>
+</BaseLayout>
+
+<script>
+  import { initTabs } from '../../lib/admin-client';
+  if (document.querySelector('[role=tab]')) initTabs();
+</script>

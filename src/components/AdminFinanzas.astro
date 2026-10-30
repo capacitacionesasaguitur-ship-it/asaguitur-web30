@@ -1,0 +1,208 @@
+---
+import type { FinanzasData } from '../lib/finanzas';
+interface Props { data: FinanzasData }
+const { data } = Astro.props;
+
+const money = new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' });
+const dt = new Intl.DateTimeFormat('es-SV', { dateStyle: 'medium', timeZone: 'UTC' });
+const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/El_Salvador' });
+const lbl = 'block text-sm font-semibold';
+const inp = 'mt-1 w-full rounded-lg border border-navy-900/25 bg-white px-3 py-2';
+const FIN: Record<string, { t: string; c: string }> = {
+  al_dia: { t: 'Al día', c: 'bg-vigente text-white' },
+  pendiente: { t: 'Pendiente', c: 'bg-sol-400 text-navy-900' },
+  en_mora: { t: 'En mora', c: 'bg-novigente text-white' },
+};
+const morosos = data.socios.filter((s) => s.estado !== 'baja' && s.meses_mora >= 1).sort((a, b) => b.saldo_vencido - a.saldo_vencido);
+const socioMap = Object.fromEntries(data.socios.map((s) => [`${s.full_name} · ${s.carnet}`, {
+  id: s.id, saldo: Number(s.saldo_vencido), meses: s.meses_mora, favor: Number(s.saldo_a_favor), estado: s.estado, correo: !!s.email,
+}]));
+---
+<div class="space-y-10">
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    {[
+      ['Recaudado este mes', money.format(data.resumen.recaudadoMes)],
+      ['Saldo vencido total', money.format(data.resumen.pendiente)],
+      ['Socios con cuotas vencidas', String(data.resumen.enMora)],
+      ['Inactivos por mora', String(data.resumen.inactivos)],
+    ].map(([k, v]) => (
+      <div class="rounded-2xl border border-navy-100 bg-white p-4"><p class="text-sm text-navy-900/75">{k}</p><p class="mt-1 text-2xl font-bold">{v}</p></div>
+    ))}
+  </div>
+
+  <section aria-labelledby="reg-t" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <form id="pago-form" class="space-y-4 rounded-2xl border border-navy-100 bg-white p-5">
+      <h2 id="reg-t" class="text-xl font-bold">Registrar un pago</h2>
+      <div>
+        <label for="p-socio" class={lbl}>Socio (escribe el nombre o el carné)</label>
+        <input id="p-socio" list="socios-list" required autocomplete="off" class={inp} placeholder="Ej. María Pérez" />
+        <datalist id="socios-list">{data.socios.map((s) => <option value={`${s.full_name} · ${s.carnet}`}></option>)}</datalist>
+        <p id="p-info" class="mt-1 min-h-5 text-sm"></p>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div><label for="p-fecha" class={lbl}>Fecha del pago</label><input id="p-fecha" type="date" required max={hoy} value={hoy} class={inp} /></div>
+        <div><label for="p-monto" class={lbl}>Monto (USD)</label><input id="p-monto" type="number" required min="0.01" step="0.01" inputmode="decimal" class={inp} /></div>
+        <div>
+          <label for="p-concepto" class={lbl}>Concepto</label>
+          <select id="p-concepto" required class={inp}>
+            <option value="cuota">Cuota mensual</option><option value="evento">Evento o capacitación</option><option value="otro">Otro</option>
+          </select>
+        </div>
+      </div>
+      <div id="p-evento-box" class="hidden">
+        <label for="p-evento" class={lbl}>Evento</label>
+        <select id="p-evento" class={inp}>
+          <option value="">Elige el evento</option>
+          {data.eventos.map((e) => <option value={e.id}>{e.title} · {dt.format(new Date(e.starts_at))} · {money.format(Number(e.price_member))}</option>)}
+        </select>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div><label for="p-ref" class={lbl}>N.º de referencia o boleta del banco</label><input id="p-ref" maxlength="60" class={inp} /></div>
+        <div><label for="p-file" class={lbl}>Comprobante (foto o PDF, máx. 10 MB)</label><input id="p-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" class={inp} /></div>
+      </div>
+      <div><label for="p-obs" class={lbl}>Observaciones (opcional)</label><input id="p-obs" maxlength="300" class={inp} /></div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button id="p-btn" class="rounded-xl bg-navy-700 px-6 py-3 font-semibold text-white hover:bg-navy-900 disabled:opacity-60">Guardar y enviar recibo</button>
+        <p id="p-status" role="status" aria-live="polite" class="text-sm"></p>
+      </div>
+    </form>
+
+    <aside class="rounded-2xl border border-navy-100 bg-white p-5 text-sm">
+      <h2 class="text-lg font-bold">Qué hace al guardar</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-5">
+        <li>Aplica el pago a la cuota más antigua pendiente (admite pagos parciales y adelantados).</li>
+        <li>Genera el recibo numerado en PDF, con firma y sello.</li>
+        <li>Lo envía por correo al socio con el importe y su saldo.</li>
+        <li>Lo agrega al historial que el socio ve en su portal.</li>
+        <li>Si estaba inactivo por mora y le quedan 2 cuotas vencidas o menos, lo reactiva.</li>
+      </ol>
+      <p class="mt-4 text-navy-900/75">La cuota mensual vigente es <strong>{money.format(data.cuota)}</strong>.</p>
+    </aside>
+  </section>
+
+  <section aria-labelledby="hist-t">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <h2 id="hist-t" class="text-xl font-bold">Últimos pagos registrados</h2>
+      <p class="flex flex-wrap gap-2 text-sm font-semibold">
+        <a class="rounded-lg border border-navy-700 px-3 py-1.5 text-navy-700 hover:bg-navy-100" href="/api/admin/finanzas/export?tipo=pagos">Descargar pagos (Excel)</a>
+        <a class="rounded-lg border border-navy-700 px-3 py-1.5 text-navy-700 hover:bg-navy-100" href="/api/admin/finanzas/export?tipo=saldos">Descargar saldos (Excel)</a>
+      </p>
+    </div>
+    <p id="h-status" role="status" aria-live="polite" class="mt-2 min-h-5 text-sm"></p>
+    <div class="mt-2 overflow-x-auto rounded-2xl border border-navy-100 bg-white">
+      <table class="w-full min-w-[820px] text-left text-sm">
+        <thead class="border-b border-navy-100 text-navy-900/75">
+          <tr>{['Recibo', 'Fecha', 'Socio', 'Concepto', 'Monto', 'Referencia'].map((h) => <th scope="col" class="px-3 py-2.5 font-semibold">{h}</th>)}<th scope="col" class="px-3 py-2.5"><span class="sr-only">Acciones</span></th></tr>
+        </thead>
+        <tbody class="divide-y divide-navy-100">
+          {data.pagos.length === 0 && <tr><td colspan="7" class="px-3 py-4">Aún no hay pagos registrados.</td></tr>}
+          {data.pagos.map((p) => (
+            <tr class={p.status === 'voided' ? 'bg-novigente-100/50 text-navy-900/60' : ''}>
+              <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{p.recibo_numero}{p.status === 'voided' && <span class="ml-2 rounded-full bg-novigente px-2 py-0.5 text-xs text-white">Anulado</span>}</td>
+              <td class="px-3 py-2.5 whitespace-nowrap">{p.fecha_pago ? dt.format(new Date(`${p.fecha_pago}T12:00:00Z`)) : '-'}</td>
+              <td class="px-3 py-2.5"><p class="font-semibold">{p.guides?.full_name}</p><p class="text-xs text-navy-900/70">Carné {p.guides?.carnet}</p></td>
+              <td class="px-3 py-2.5">{p.description}</td>
+              <td class="px-3 py-2.5 whitespace-nowrap font-semibold">{money.format(p.amount)}</td>
+              <td class="px-3 py-2.5">{p.referencia ?? '-'}</td>
+              <td class="px-3 py-2.5 whitespace-nowrap">
+                <a href={`/api/admin/finanzas/recibo/${p.id}`} target="_blank" rel="noopener" class="font-semibold text-navy-700 underline">Recibo</a>
+                {p.comprobante_path && <a href={`/api/admin/finanzas/comprobante/${p.id}`} target="_blank" rel="noopener" class="ml-3 font-semibold text-navy-700 underline">Comprobante</a>}
+                {p.status !== 'voided' && <button type="button" data-anular={p.id} data-recibo={p.recibo_numero} class="ml-3 font-semibold text-novigente underline">Anular</button>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="mor-t">
+    <h2 id="mor-t" class="text-xl font-bold">Socios con cuotas vencidas</h2>
+    <div class="mt-3 overflow-x-auto rounded-2xl border border-navy-100 bg-white">
+      <table class="w-full min-w-[640px] text-left text-sm">
+        <thead class="border-b border-navy-100 text-navy-900/75">
+          <tr>{['Socio', 'Cuotas vencidas', 'Saldo vencido', 'Cuenta', 'Estado'].map((h) => <th scope="col" class="px-3 py-2.5 font-semibold">{h}</th>)}</tr>
+        </thead>
+        <tbody class="divide-y divide-navy-100">
+          {morosos.length === 0 && <tr><td colspan="5" class="px-3 py-4">Ningún socio tiene cuotas vencidas.</td></tr>}
+          {morosos.map((m) => (
+            <tr>
+              <td class="px-3 py-2.5"><p class="font-semibold">{m.full_name}</p><p class="text-xs text-navy-900/70">Carné {m.carnet}{!m.email && ' · sin correo'}</p></td>
+              <td class="px-3 py-2.5">{m.meses_mora}</td>
+              <td class="px-3 py-2.5 font-semibold">{money.format(Number(m.saldo_vencido))}</td>
+              <td class="px-3 py-2.5"><span class={`inline-block rounded-full px-2.5 py-1 text-xs font-bold ${FIN[m.finance_status].c}`}>{FIN[m.finance_status].t}</span></td>
+              <td class="px-3 py-2.5">{m.estado === 'inactivo_mora' ? 'Inactivo por mora' : 'Activo'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script define:vars={{ socioMap, cuota: data.cuota }}>
+  window.__socios = socioMap; window.__cuota = cuota;
+</script>
+<script>
+  import { postJson, uploadComprobante } from '../lib/admin-client';
+
+  const socios = (window as any).__socios as Record<string, { id: string; saldo: number; meses: number; favor: number; estado: string; correo: boolean }>;
+  const cuota = (window as any).__cuota as number;
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const money = new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' });
+  const say = (el: HTMLElement, msg: string, err = false) => { el.textContent = msg; el.className = `text-sm font-semibold ${err ? 'text-novigente' : 'text-vigente'}`; };
+
+  const socio = $<HTMLInputElement>('p-socio'), monto = $<HTMLInputElement>('p-monto'), concepto = $<HTMLSelectElement>('p-concepto');
+  const info = $('p-info');
+  const actual = () => socios[socio.value.trim()];
+
+  function pintarSocio() {
+    const s = actual();
+    if (!s) { info.textContent = ''; return; }
+    const partes = [`Saldo vencido: ${money.format(s.saldo)}`, `${s.meses} cuota(s) vencida(s)`];
+    if (s.favor > 0) partes.push(`a favor: ${money.format(s.favor)}`);
+    if (s.estado === 'inactivo_mora') partes.push('INACTIVO POR MORA');
+    if (!s.correo) partes.push('sin correo: no recibirá el recibo');
+    info.textContent = partes.join(' · ');
+    info.className = `mt-1 min-h-5 text-sm font-semibold ${s.estado === 'inactivo_mora' || !s.correo ? 'text-novigente' : 'text-navy-900'}`;
+    if (concepto.value === 'cuota' && !monto.value) monto.value = String(cuota.toFixed(2));
+  }
+  socio.addEventListener('input', pintarSocio);
+  concepto.addEventListener('change', () => { $('p-evento-box').classList.toggle('hidden', concepto.value !== 'evento'); });
+
+  $('pago-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const st = $('p-status'), btn = $<HTMLButtonElement>('p-btn');
+    const s = actual();
+    if (!s) return say(st, 'Elige un socio de la lista.', true);
+    btn.disabled = true; st.className = 'text-sm'; st.textContent = 'Guardando…';
+    try {
+      const file = $<HTMLInputElement>('p-file').files?.[0];
+      const comprobante_path = file ? await uploadComprobante(file) : null;
+      const body: Record<string, unknown> = {
+        guide_id: s.id, fecha: $<HTMLInputElement>('p-fecha').value, monto: Number(monto.value), concepto: concepto.value,
+        event_id: $<HTMLSelectElement>('p-evento').value || null, referencia: $<HTMLInputElement>('p-ref').value,
+        observaciones: $<HTMLInputElement>('p-obs').value, comprobante_path,
+      };
+      let out;
+      try { out = await postJson('/api/admin/finanzas/pago', body); }
+      catch (err) {
+        if (!/ya fue registrada/.test((err as Error).message) || !confirm(`${(err as Error).message}\n\n¿Registrar el pago de todos modos?`)) throw err;
+        out = await postJson('/api/admin/finanzas/pago', { ...body, confirmar_duplicado: true });
+      }
+      const saldo = out.saldo > 0.004 ? `saldo pendiente ${money.format(out.saldo)}` : out.saldo < -0.004 ? `saldo a favor ${money.format(-out.saldo)}` : 'cuenta al día';
+      const correo = out.correo === 'enviado' ? 'Recibo enviado por correo.' : out.correo === 'sin_correo' ? 'El socio no tiene correo: descarga el recibo y envíaselo.' : 'No se pudo enviar el correo: descarga el recibo y envíaselo.';
+      say(st, `Pago registrado. Recibo ${out.recibo}: ${saldo}.${out.reactivado ? ' Socio reactivado.' : ''} ${correo}`, out.correo !== 'enviado');
+      window.open(`/api/admin/finanzas/recibo/${out.payment_id}`, '_blank');
+      setTimeout(() => location.reload(), 4000);
+    } catch (err) { say(st, (err as Error).message, true); btn.disabled = false; }
+  });
+
+  document.querySelectorAll<HTMLButtonElement>('[data-anular]').forEach((b) => b.addEventListener('click', async () => {
+    const motivo = prompt(`Anular el recibo ${b.dataset.recibo}.\n\nEscribe el motivo de la anulación:`);
+    if (!motivo) return;
+    const st = $('h-status');
+    try { await postJson('/api/admin/finanzas/anular', { payment_id: b.dataset.anular, motivo }); location.reload(); }
+    catch (err) { say(st, (err as Error).message, true); }
+  }));
+</script>

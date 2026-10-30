@@ -1,0 +1,71 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { createServerSupabase } from '../lib/supabase-server';
+import { safeNext } from '../lib/http';
+
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+// Si ya hay sesión, directo al portal
+const supabase = createServerSupabase(Astro.request, Astro.cookies);
+if (supabase) {
+  const { data } = await supabase.auth.getUser();
+  if (data.user) return Astro.redirect('/socio');
+}
+
+const q = Astro.url.searchParams;
+const recuperar = q.get('modo') === 'recuperar';
+const next = safeNext(q.get('next'));
+
+const ERRORES: Record<string, string> = {
+  credenciales: 'El correo o la contraseña no son correctos.',
+  enlace: 'El enlace venció o ya se usó. Solicita uno nuevo desde "Olvidé mi contraseña".',
+  config: 'El acceso para socios aún no está configurado.',
+};
+const OKS: Record<string, string> = {
+  enviado: 'Si el correo pertenece a un socio, te enviamos un enlace para crear una contraseña nueva. Revisa también la carpeta de spam.',
+  salio: 'Cerraste sesión.',
+};
+const error = ERRORES[q.get('error') ?? ''];
+const ok = OKS[q.get('ok') ?? ''];
+const input = 'mt-1 w-full rounded-lg border border-navy-900/25 bg-white px-3 py-2.5';
+---
+<BaseLayout title={recuperar ? 'Recuperar contraseña' : 'Acceso socios'} noindex>
+  <main class="mx-auto max-w-md px-4 py-12">
+    <h1 class="text-3xl font-bold text-navy-700">{recuperar ? 'Recuperar contraseña' : 'Portal del socio'}</h1>
+    <p class="mt-2">
+      {recuperar
+        ? 'Escribe el correo con el que estás registrado y te enviaremos un enlace para crear una contraseña nueva.'
+        : 'Ingresa con tu correo personal y tu contraseña.'}
+    </p>
+
+    {error && <p role="alert" class="mt-5 rounded-lg border border-novigente bg-novigente-100 px-4 py-3 text-sm font-medium text-novigente">{error}</p>}
+    {ok && <p role="status" class="mt-5 rounded-lg border border-vigente bg-vigente-100 px-4 py-3 text-sm font-medium text-vigente">{ok}</p>}
+
+    {recuperar ? (
+      <form method="post" action="/api/auth/forgot" class="mt-6 space-y-4 rounded-2xl border border-navy-100 bg-white p-6">
+        <div>
+          <label for="email" class="block text-sm font-semibold">Correo electrónico</label>
+          <input id="email" name="email" type="email" required autocomplete="email" class={input} />
+        </div>
+        <button class="w-full rounded-xl bg-navy-700 px-5 py-3 font-semibold text-white hover:bg-navy-900">Enviar enlace</button>
+        <p class="text-center text-sm"><a href="/login" class="font-semibold text-navy-700 underline">Volver a iniciar sesión</a></p>
+      </form>
+    ) : (
+      <form method="post" action="/api/auth/login" class="mt-6 space-y-4 rounded-2xl border border-navy-100 bg-white p-6">
+        <input type="hidden" name="next" value={next} />
+        <div>
+          <label for="email" class="block text-sm font-semibold">Correo electrónico</label>
+          <input id="email" name="email" type="email" required autocomplete="username" class={input} />
+        </div>
+        <div>
+          <label for="password" class="block text-sm font-semibold">Contraseña</label>
+          <input id="password" name="password" type="password" required autocomplete="current-password" class={input} />
+        </div>
+        <button class="w-full rounded-xl bg-navy-700 px-5 py-3 font-semibold text-white hover:bg-navy-900">Iniciar sesión</button>
+        <p class="text-center text-sm"><a href="/login?modo=recuperar" class="font-semibold text-navy-700 underline">Olvidé mi contraseña</a></p>
+      </form>
+    )}
+    <p class="mt-6 text-sm text-navy-900/75">¿Aún no tienes acceso? Solicítalo a la Junta Directiva de ASAGUITUR.</p>
+  </main>
+</BaseLayout>

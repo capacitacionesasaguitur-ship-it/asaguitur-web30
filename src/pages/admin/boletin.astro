@@ -1,0 +1,180 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AdminNav from '../../components/AdminNav.astro';
+import { supabaseAdmin } from '../../lib/supabase';
+import { env } from '../../lib/env';
+
+export const prerender = false;
+
+const { data: history } = supabaseAdmin
+  ? await supabaseAdmin.from('newsletters').select('id, kind, subject, status, recipients_count, sent_count, failed_count, created_at').order('created_at', { ascending: false }).limit(15)
+  : { data: [] };
+const resendReady = !!(env('RESEND_API_KEY') && env('RESEND_FROM'));
+const dt = new Intl.DateTimeFormat('es-SV', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/El_Salvador' });
+const ESTADO: Record<string, string> = { sent: 'Enviado', partial: 'Parcial', failed: 'Falló', sending: 'En proceso' };
+const lbl = 'block text-sm font-semibold';
+const inp = 'mt-1 w-full rounded-lg border border-navy-900/25 bg-white px-3 py-2';
+---
+<BaseLayout title="Boletines y recordatorios" noindex>
+  <AdminNav slot="top" current="boletin" />
+  <main class="mx-auto max-w-4xl px-4 py-8">
+    <h1 class="text-3xl font-bold text-navy-700">Boletines y recordatorios</h1>
+    <p class="mt-2">Envía un mensaje a los socios o recuerda la cuota a quienes la tienen pendiente o en mora.</p>
+
+    {!resendReady && (
+      <p role="alert" class="mt-5 rounded-lg border border-novigente bg-novigente-100 px-4 py-3 text-sm font-medium text-novigente">
+        Resend aún no está configurado: faltan RESEND_API_KEY o RESEND_FROM en las variables de entorno.
+      </p>
+    )}
+
+    <form id="nl-form" class="mt-6 space-y-5 rounded-2xl border border-navy-100 bg-white p-5">
+      <fieldset>
+        <legend class={lbl}>Tipo de envío</legend>
+        <div class="mt-2 flex flex-wrap gap-3">
+          <label class="cursor-pointer"><input type="radio" name="kind" value="boletin" checked class="peer sr-only" /><span class="inline-block rounded-lg border border-navy-900/25 px-4 py-2 text-sm font-semibold peer-checked:border-navy-700 peer-checked:bg-navy-700 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-cielo-600">Boletín o anuncio</span></label>
+          <label class="cursor-pointer"><input type="radio" name="kind" value="recordatorio" class="peer sr-only" /><span class="inline-block rounded-lg border border-navy-900/25 px-4 py-2 text-sm font-semibold peer-checked:border-navy-700 peer-checked:bg-navy-700 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-3 peer-focus-visible:outline-cielo-600">Recordatorio de pago</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset id="estados-box" class="hidden">
+        <legend class={lbl}>Enviar a socios con cuota</legend>
+        <div class="mt-2 flex flex-wrap gap-4 text-sm">
+          <label class="flex items-center gap-2"><input type="checkbox" name="estado" value="pendiente" checked /> Pendiente</label>
+          <label class="flex items-center gap-2"><input type="checkbox" name="estado" value="en_mora" checked /> En mora</label>
+        </div>
+        <p class="mt-2 text-xs text-navy-900/70">Cada socio recibe un botón para ver su estado de cuenta en el portal. Los recordatorios automáticos de mora ya se envían solos cada mes.</p>
+      </fieldset>
+
+      <label class="flex items-center gap-2 text-sm"><input id="inactivos" type="checkbox" /> Incluir también a socios inactivos</label>
+
+      <div><label for="subject" class={lbl}>Asunto</label><input id="subject" maxlength="150" required class={inp} /></div>
+      <div>
+        <label for="message" class={lbl}>Mensaje</label>
+        <textarea id="message" rows="9" maxlength="5000" required class={inp}></textarea>
+        <p class="mt-1 text-xs text-navy-900/70">Cada correo empieza con "Hola" y el primer nombre del socio. Deja una línea en blanco para separar párrafos.</p>
+      </div>
+
+      <div>
+        <label for="file" class={lbl}>Afiche o PDF (opcional, máximo 10 MB)</label>
+        <input id="file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" class={inp} />
+        <p id="file-status" role="status" aria-live="polite" class="mt-1 text-sm"></p>
+        <p class="mt-1 text-xs text-navy-900/70">Las imágenes se muestran dentro del correo; los PDF llegan como botón de descarga.</p>
+      </div>
+
+      <div class="rounded-xl bg-fondo p-4 text-sm">
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" id="btn-preview" class="rounded-lg border border-navy-700 px-4 py-2 font-semibold text-navy-700 hover:bg-navy-100">Ver destinatarios</button>
+          <p id="preview-count" class="font-semibold"></p>
+        </div>
+        <details id="preview-box" class="mt-3 hidden"><summary class="cursor-pointer font-semibold">Lista de destinatarios</summary><ul id="preview-list" class="mt-2 max-h-56 space-y-1 overflow-y-auto"></ul></details>
+        <p id="preview-warn" class="mt-2 text-novigente"></p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" id="btn-test" class="rounded-xl border border-navy-700 px-5 py-3 text-sm font-semibold text-navy-700 hover:bg-navy-100 disabled:opacity-60">Enviarme una prueba</button>
+        <button type="submit" id="btn-send" class="rounded-xl bg-navy-700 px-5 py-3 text-sm font-semibold text-white hover:bg-navy-900 disabled:opacity-60">Enviar a los socios</button>
+      </div>
+      <p id="nl-status" role="status" aria-live="polite" class="text-sm font-semibold"></p>
+    </form>
+
+    <section class="mt-10" aria-labelledby="hist-t">
+      <h2 id="hist-t" class="text-lg font-bold">Envíos recientes</h2>
+      <div class="mt-3 overflow-x-auto rounded-2xl border border-navy-100 bg-white">
+        <table class="w-full min-w-[560px] text-left text-sm">
+          <thead class="border-b border-navy-100 text-navy-900/75"><tr><th scope="col" class="px-3 py-2 font-semibold">Fecha</th><th scope="col" class="px-3 py-2 font-semibold">Asunto</th><th scope="col" class="px-3 py-2 font-semibold">Tipo</th><th scope="col" class="px-3 py-2 text-right font-semibold">Enviados</th><th scope="col" class="px-3 py-2 font-semibold">Estado</th></tr></thead>
+          <tbody class="divide-y divide-navy-100">
+            {(history ?? []).length === 0 && <tr><td colspan="5" class="px-3 py-4">Todavía no se ha enviado nada.</td></tr>}
+            {(history ?? []).map((n) => (
+              <tr>
+                <td class="px-3 py-2 whitespace-nowrap">{dt.format(new Date(n.created_at))}</td>
+                <td class="px-3 py-2">{n.subject}</td>
+                <td class="px-3 py-2">{n.kind === 'recordatorio' ? 'Recordatorio' : 'Boletín'}</td>
+                <td class="px-3 py-2 text-right">{n.sent_count} de {n.recipients_count}</td>
+                <td class="px-3 py-2 font-semibold">{ESTADO[n.status] ?? n.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<script>
+  import { postJson, uploadFile } from '../../lib/admin-client';
+
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+  const form = $<HTMLFormElement>('nl-form');
+  const subject = $<HTMLInputElement>('subject'), message = $<HTMLTextAreaElement>('message');
+  const status = $('nl-status');
+  let attachment: { url: string; name: string } | null = null;
+
+  const DEFAULTS = {
+    boletin: { subject: '', message: '' },
+    recordatorio: {
+      subject: 'Recordatorio de cuota de membresía ASAGUITUR',
+      message: 'Te recordamos que tu cuota de membresía de ASAGUITUR está pendiente de pago. Puedes pagarla en línea, con tarjeta de crédito o débito, desde el botón de abajo.\n\nGracias por mantener vigente tu carné y por ser parte de la asociación.',
+    },
+  };
+  const kind = () => (form.querySelector<HTMLInputElement>('input[name=kind]:checked')!.value as 'boletin' | 'recordatorio');
+  const estados = () => [...form.querySelectorAll<HTMLInputElement>('input[name=estado]:checked')].map((i) => i.value);
+  const say = (el: HTMLElement, msg: string, err = false) => { el.textContent = msg; el.className = `text-sm font-semibold ${err ? 'text-novigente' : 'text-vigente'}`; };
+  const payload = () => ({ kind: kind(), estados: estados(), incluirInactivos: $<HTMLInputElement>('inactivos').checked, subject: subject.value, message: message.value, attachment });
+
+  // Cambiar de tipo propone un texto base (solo si el campo está vacío o sin editar)
+  let lastKind: 'boletin' | 'recordatorio' = 'boletin';
+  form.querySelectorAll<HTMLInputElement>('input[name=kind]').forEach((r) => r.addEventListener('change', () => {
+    const k = kind();
+    $('estados-box').classList.toggle('hidden', k !== 'recordatorio');
+    if (!subject.value || subject.value === DEFAULTS[lastKind].subject) subject.value = DEFAULTS[k].subject;
+    if (!message.value || message.value === DEFAULTS[lastKind].message) message.value = DEFAULTS[k].message;
+    lastKind = k; $('preview-count').textContent = '';
+  }));
+
+  $<HTMLInputElement>('file').addEventListener('change', async (e) => {
+    const f = (e.target as HTMLInputElement).files?.[0]; attachment = null;
+    const out = $('file-status');
+    if (!f) return say(out, '');
+    say(out, 'Subiendo archivo…');
+    try {
+      const up = await uploadFile('boletin', f);
+      attachment = { url: up.publicUrl!, name: f.name };
+      say(out, `Listo: ${f.name}`);
+    } catch (err) { say(out, (err as Error).message, true); (e.target as HTMLInputElement).value = ''; }
+  });
+
+  async function preview() {
+    const p = payload();
+    const r = await postJson('/api/admin/boletin/preview', { kind: p.kind, estados: p.estados, incluirInactivos: p.incluirInactivos });
+    $('preview-count').textContent = `${r.count} destinatarios`;
+    $('preview-box').classList.toggle('hidden', r.count === 0);
+    $('preview-list').innerHTML = r.recipients.map((x: any) => `<li>${esc(x.name)} <span class="text-navy-900/70">(${esc(x.email)})</span></li>`).join('');
+    $('preview-warn').textContent = r.sinCorreo.length ? `Sin correo registrado, no recibirán el mensaje: ${r.sinCorreo.join(', ')}.` : '';
+    return r.count as number;
+  }
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+  $('btn-preview').addEventListener('click', async () => { try { await preview(); } catch (e) { say(status, (e as Error).message, true); } });
+
+  async function send(test: boolean) {
+    const btns = [$('btn-test'), $('btn-send')] as HTMLButtonElement[];
+    btns.forEach((b) => (b.disabled = true));
+    try {
+      if (!test) {
+        const n = await preview();
+        if (n === 0) throw new Error('No hay destinatarios con correo para este envío.');
+        if (!confirm(`Se enviará este mensaje a ${n} socios. Esta acción no se puede deshacer.\n\n¿Continuar?`)) { return; }
+      }
+      say(status, test ? 'Enviando prueba…' : 'Enviando…');
+      const r = await postJson('/api/admin/boletin/send', { ...payload(), test });
+      if (test) say(status, 'Prueba enviada a tu correo.');
+      else {
+        say(status, r.failed ? `Se enviaron ${r.sent} y fallaron ${r.failed}. ${r.error ?? ''}` : `Enviado a ${r.sent} socios.`, !!r.failed);
+        if (!r.failed) setTimeout(() => location.reload(), 1500);
+      }
+    } catch (e) { say(status, (e as Error).message, true); }
+    finally { btns.forEach((b) => (b.disabled = false)); }
+  }
+  $('btn-test').addEventListener('click', () => send(true));
+  form.addEventListener('submit', (e) => { e.preventDefault(); send(false); });
+</script>

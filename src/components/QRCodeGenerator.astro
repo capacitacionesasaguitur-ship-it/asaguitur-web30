@@ -1,0 +1,17 @@
+---
+import { makeQrSvg } from '../lib/qr';
+
+interface Props {
+  url: string;           // URL pública de verificación, ej. https://www.asaguitur.org/carnet/<id>
+  size?: number;         // lado en px (el SVG escala sin perder nitidez)
+  label?: string;
+}
+const { url, size = 176, label = 'Código QR para verificar este carné' } = Astro.props;
+const svg = await makeQrSvg(url); // se genera en el servidor: no carga JavaScript en el navegador
+---
+<figure class="inline-block">
+  <div role="img" aria-label={label} style={`width:${size}px`}
+       class="overflow-hidden rounded-xl border border-navy-100 bg-white [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+       set:html={svg} />
+  <figcaption class="sr-only">{url}</figcaption>
+</figure>
