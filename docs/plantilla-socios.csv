@@ -1,0 +1,3 @@
+full_name,carnet,rnt,email,department,languages,specialties,whatsapp,member_since,tipo_guia,estado
+"EJEMPLO María Pérez (borrar esta fila)",ASG-001,RNT-GT-0001,maria@ejemplo.com,La Libertad,"{Español,Inglés}","{Arqueología,Historia}",50370000001,2019-03-01,sitio,activo
+"EJEMPLO José López (borrar esta fila)",ASG-002,RNT-GT-0002,jose@ejemplo.com,Santa Ana,"{Español,Francés}","{Senderismo,Aventura}",50370000002,2020-05-15,nacional,activo

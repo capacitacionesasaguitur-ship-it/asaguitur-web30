@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /admin
+Disallow: /socio
+Disallow: /api/
+Disallow: /login
+Disallow: /reset-password
+Disallow: /pagar/
+Disallow: /carnet/
