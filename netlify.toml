@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Evita el error de npm "Cannot read properties of null (reading 'edgesOut')" al resolver dependencias
+  NPM_FLAGS = "--legacy-peer-deps"
